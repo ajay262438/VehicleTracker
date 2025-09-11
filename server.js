@@ -1,51 +1,47 @@
 const express = require('express');
 const cors = require('cors');
-
 const app = express();
-const port = 3000;
+// Render provides the PORT environment variable.
+const PORT = process.env.PORT || 3000;
 
-// Middleware to enable CORS and parse JSON bodies
 app.use(cors());
 app.use(express.json());
 
-// This is a simple in-memory storage. 
-// When the server restarts, the location will be reset.
-let latestVehicleData = {
-    latitude: 27.0001, // Default starting location
-    longitude: 80.9203,
+// This will store the latest location data in memory
+let latestLocation = {
+    latitude: 27.0001, // Default starting latitude
+    longitude: 80.9203, // Default starting longitude
     gforce: 0.0,
     timestamp: new Date().toISOString()
 };
 
-// This is the endpoint our ESP32 will send data TO.
-// It listens for POST requests at the path '/update'
-app.post('/update', (req, res) => {
-    console.log('Received data from vehicle:', req.body);
-    
-    // Basic validation to make sure we have the data we need
-    if (req.body.latitude && req.body.longitude) {
-        latestVehicleData = {
-            latitude: req.body.latitude,
-            longitude: req.body.longitude,
-            gforce: req.body.gforce || 0.0,
-            timestamp: new Date().toISOString()
-        };
-        // Send a success response back to the ESP32
-        res.status(200).json({ message: 'Data received successfully' });
-    } else {
-        // Send an error response if the data is incomplete
-        res.status(400).json({ message: 'Invalid data format. Latitude and longitude are required.' });
-    }
-});
-
-// This is the endpoint our web dashboard will get data FROM.
-// It listens for GET requests at the path '/location'
+// This is the endpoint the WEB BROWSER will call to GET the location
 app.get('/location', (req, res) => {
-    res.status(200).json(latestVehicleData);
+    res.json(latestLocation);
 });
 
-// Start the server
-app.listen(port, () => {
-    console.log(`Vehicle tracking server is running on http://localhost:${port}`);
+// This is the endpoint the ESP32 will call to POST new location data
+app.post('/location', (req, res) => {
+    const { lat, lon, gforce } = req.body;
+
+    if (lat === undefined || lon === undefined || gforce === undefined) {
+        return res.status(400).send({ message: 'Invalid data format. requires lat, lon, and gforce.' });
+    }
+
+    latestLocation = {
+        latitude: lat,
+        longitude: lon,
+        gforce: gforce,
+        timestamp: new Date().toISOString()
+    };
+    
+    console.log('Received new location:', latestLocation);
+    res.status(200).send({ message: 'Location received' });
+});
+
+// --- THE FIX IS HERE ---
+// We need to tell the server to listen on host '0.0.0.0' to be accessible from the internet.
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Vehicle tracking server is running and listening on port ${PORT}`);
 });
 
