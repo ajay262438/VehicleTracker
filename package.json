@@ -1,0 +1,15 @@
+{
+  "name": "vehicle-tracker-server",
+  "version": "1.0.0",
+  "description": "A simple server to receive and serve vehicle location data.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "author": "Your Name",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2"
+  }
+}
