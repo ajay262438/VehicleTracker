@@ -1,9 +1,8 @@
 const express = require('express');
-const cors = require('cors'); // Re-adding CORS
+const cors = require('cors');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 
@@ -15,24 +14,29 @@ let latestLocation = {
     timestamp: new Date().toISOString()
 };
 
-// Endpoint for the WEB BROWSER to GET the location
+// This is the endpoint the WEB BROWSER will call to GET the location
 app.get('/location', (req, res) => {
+    // --- THE FIX IS HERE ---
+    // Add headers to prevent caching on the browser and on network proxies
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate'); // HTTP 1.1.
+    res.setHeader('Pragma', 'no-cache'); // HTTP 1.0.
+    res.setHeader('Expires', '0'); // Proxies.
+
     res.json(latestLocation);
 });
 
-// Endpoint for the ESP32 to POST new location data
+// This is the endpoint the ESP32 will call to POST new location data
 app.post('/location', (req, res) => {
     const { lat, lon, gforce } = req.body;
 
     if (lat === undefined || lon === undefined) {
-        // G-force is optional for periodic updates
-        return res.status(400).send({ message: 'Invalid data format. Requires lat and lon.' });
+        return res.status(400).send({ message: 'Invalid data format. requires lat and lon.' });
     }
 
     latestLocation = {
         latitude: lat,
         longitude: lon,
-        gforce: gforce || latestLocation.gforce, // Keep old gforce if not provided
+        gforce: gforce || 0.0, // Default gforce to 0 if not provided
         timestamp: new Date().toISOString()
     };
     
