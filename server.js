@@ -4,7 +4,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
-app.use(express.json({ limit: '1kb' })); // Use JSON parser with a small limit
+// Use a raw body parser to inspect what the ESP32 is sending
+app.use(express.text({ type: '*/*' }));
 
 // This will store the latest location data in memory
 let latestLocation = {
@@ -21,12 +22,19 @@ app.get('/location', (req, res) => {
 
 // This is the endpoint the ESP32 will call to POST new location data
 app.post('/location', (req, res) => {
-    // --- THIS IS THE FIX ---
-    // Log the raw body that was received BEFORE we try to process it.
     console.log(`--- New POST request received at ${new Date().toISOString()} ---`);
-    console.log('Request Body:', req.body);
+    console.log('RAW Request Body:', req.body); // Log the raw text
 
-    const { lat, lon, gforce } = req.body;
+    let data;
+    try {
+        // We will now try to parse the raw text body as JSON
+        data = JSON.parse(req.body);
+    } catch (error) {
+        console.error('JSON Parsing Error:', error.message);
+        return res.status(400).send({ message: 'Bad JSON format' });
+    }
+
+    const { lat, lon, gforce } = data;
 
     if (typeof lat !== 'number' || typeof lon !== 'number') {
         console.log('Validation failed: lat or lon is not a number.');
