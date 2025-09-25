@@ -4,44 +4,44 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '1kb' })); // Use JSON parser with a small limit
 
 // This will store the latest location data in memory
 let latestLocation = {
-    latitude: 27.0001, // Default starting latitude
-    longitude: 80.9203, // Default starting longitude
+    latitude: 27.0001,
+    longitude: 80.9203,
     gforce: 0.0,
     timestamp: new Date().toISOString()
 };
 
-// This is the endpoint the WEB BROWSER will call to GET the location
 app.get('/location', (req, res) => {
-    // --- THE FIX IS HERE ---
-    // Add headers to prevent caching on the browser and on network proxies
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate'); // HTTP 1.1.
-    res.setHeader('Pragma', 'no-cache'); // HTTP 1.0.
-    res.setHeader('Expires', '0'); // Proxies.
-
+    res.setHeader('Cache-Control', 'no-cache');
     res.json(latestLocation);
 });
 
 // This is the endpoint the ESP32 will call to POST new location data
 app.post('/location', (req, res) => {
+    // --- THIS IS THE FIX ---
+    // Log the raw body that was received BEFORE we try to process it.
+    console.log(`--- New POST request received at ${new Date().toISOString()} ---`);
+    console.log('Request Body:', req.body);
+
     const { lat, lon, gforce } = req.body;
 
-    if (lat === undefined || lon === undefined) {
-        return res.status(400).send({ message: 'Invalid data format. requires lat and lon.' });
+    if (typeof lat !== 'number' || typeof lon !== 'number') {
+        console.log('Validation failed: lat or lon is not a number.');
+        return res.status(400).send({ message: 'Invalid data format. requires numeric lat and lon.' });
     }
 
     latestLocation = {
         latitude: lat,
         longitude: lon,
-        gforce: gforce || 0.0, // Default gforce to 0 if not provided
+        gforce: typeof gforce === 'number' ? gforce : 0.0,
         timestamp: new Date().toISOString()
     };
     
-    console.log('Received new location:', latestLocation);
-    res.status(200).send({ message: 'Location received' });
+    console.log('Successfully updated location:', latestLocation);
+    res.status(200).send({ message: 'Location updated successfully' });
 });
 
 app.listen(PORT, () => {
